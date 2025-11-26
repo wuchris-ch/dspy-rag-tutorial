@@ -1,0 +1,3 @@
+# DSPy RAG Example Dependencies
+dspy-ai>=3.0.4
+python-dotenv>=1.0.0
