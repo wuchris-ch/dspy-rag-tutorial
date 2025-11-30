@@ -1,0 +1,92 @@
+[
+  {
+    "original": "DataFlow is a real-time data streaming API designed for high-throughput applications.\nIt supports up to 10,000 events per second per connection. The API uses WebSocket\nconnections for real-time streaming and REST endpoints for configuration and management.\nDataFlow is ideal for financial data, IoT sensors, and live analytics dashboards.",
+    "contextual": "[This chunk from the \"Overview\" section of the \"DataFlow API Documentation\" introduces the DataFlow API, describing its real-time streaming capabilities, high-throughput design, and ideal use cases.]\n\nDataFlow is a real-time data streaming API designed for high-throughput applications.\nIt supports up to 10,000 events per second per connection. The API uses WebSocket\nconnections for real-time streaming and REST endpoints for configuration and management.\nDataFlow is ideal for financial data, IoT sensors, and live analytics dashboards.",
+    "doc": "DataFlow API Documentation",
+    "section": "Overview"
+  },
+  {
+    "original": "All API requests require authentication using Bearer tokens. Tokens are obtained\nfrom the /auth/token endpoint using your API key and secret. Tokens expire after\n24 hours and must be refreshed. For WebSocket connections, include the token in\nthe connection URL as a query parameter: wss://api.dataflow.io/stream?token=YOUR_TOKEN",
+    "contextual": "[This chunk, from the Authentication section of the DataFlow API Documentation, details the process for authenticating API requests using Bearer tokens, including how to obtain and refresh them, and their specific use with WebSocket connections.]\n\nAll API requests require authentication using Bearer tokens. Tokens are obtained\nfrom the /auth/token endpoint using your API key and secret. Tokens expire after\n24 hours and must be refreshed. For WebSocket connections, include the token in\nthe connection URL as a query parameter: wss://api.dataflow.io/stream?token=YOUR_TOKEN",
+    "doc": "DataFlow API Documentation",
+    "section": "Authentication"
+  },
+  {
+    "original": "Free tier accounts are limited to 100 requests per minute and 1,000 events per second.\nPro tier increases this to 1,000 requests per minute and 10,000 events per second.\nEnterprise tier has custom limits. Rate limit headers are included in all responses:\nX-RateLimit-Remaining and X-RateLimit-Reset.",
+    "contextual": "[This chunk from the DataFlow API Documentation's Rate Limits section details the specific request and event per second limits for Free, Pro, and Enterprise accounts, and mentions the associated rate limit headers.]\n\nFree tier accounts are limited to 100 requests per minute and 1,000 events per second.\nPro tier increases this to 1,000 requests per minute and 10,000 events per second.\nEnterprise tier has custom limits. Rate limit headers are included in all responses:\nX-RateLimit-Remaining and X-RateLimit-Reset.",
+    "doc": "DataFlow API Documentation",
+    "section": "Rate Limits"
+  },
+  {
+    "original": "Connect to wss://api.dataflow.io/stream to receive real-time events. After connecting,\nsend a subscription message: {\"action\": \"subscribe\", \"channels\": [\"channel1\", \"channel2\"]}.\nEvents are delivered as JSON objects with timestamp, channel, and data fields.\nThe connection automatically reconnects on network failures with exponential backoff.",
+    "contextual": "[This chunk from the DataFlow API Documentation's WebSocket Streaming section provides instructions for connecting to the real-time event stream. It details the WebSocket URL, the format for subscription messages, the structure of received events, and automatic reconnection features.]\n\nConnect to wss://api.dataflow.io/stream to receive real-time events. After connecting,\nsend a subscription message: {\"action\": \"subscribe\", \"channels\": [\"channel1\", \"channel2\"]}.\nEvents are delivered as JSON objects with timestamp, channel, and data fields.\nThe connection automatically reconnects on network failures with exponential backoff.",
+    "doc": "DataFlow API Documentation",
+    "section": "WebSocket Streaming"
+  },
+  {
+    "original": "The API returns standard HTTP status codes. 400 indicates invalid request parameters.\n401 means authentication failed - check your token. 429 means rate limit exceeded -\nimplement exponential backoff. 500 indicates server error - retry with backoff.\nAll error responses include a JSON body with 'error' and 'message' fields.",
+    "contextual": "[This chunk, from the \"Error Handling\" section of the DataFlow API Documentation, details the standard HTTP status codes used for various errors and describes the structure of error response bodies.]\n\nThe API returns standard HTTP status codes. 400 indicates invalid request parameters.\n401 means authentication failed - check your token. 429 means rate limit exceeded -\nimplement exponential backoff. 500 indicates server error - retry with backoff.\nAll error responses include a JSON body with 'error' and 'message' fields.",
+    "doc": "DataFlow API Documentation",
+    "section": "Error Handling"
+  },
+  {
+    "original": "CloudStore provides S3-compatible object storage with global CDN distribution.\nObjects can be up to 5TB in size. The service offers 99.99% availability SLA\nand 11 nines of durability. CloudStore supports versioning, lifecycle policies,\nand cross-region replication for disaster recovery.",
+    "contextual": "[This chunk, from the 'Overview' section of the 'CloudStore Storage Documentation', details the key features, specifications, and capabilities of the CloudStore S3-compatible object storage service.]\n\nCloudStore provides S3-compatible object storage with global CDN distribution.\nObjects can be up to 5TB in size. The service offers 99.99% availability SLA\nand 11 nines of durability. CloudStore supports versioning, lifecycle policies,\nand cross-region replication for disaster recovery.",
+    "doc": "CloudStore Storage Documentation",
+    "section": "Overview"
+  },
+  {
+    "original": "CloudStore uses AWS Signature Version 4 for authentication. You'll need an access\nkey ID and secret access key from your account dashboard. For temporary credentials,\nuse the STS AssumeRole API. All requests must be signed using the canonical request\nformat documented in the AWS signature specification.",
+    "contextual": "[This chunk from the \"Authentication\" section of the CloudStore Storage Documentation details the authentication methods used by CloudStore, specifically mentioning AWS Signature Version 4 and the use of access keys and temporary STS credentials.]\n\nCloudStore uses AWS Signature Version 4 for authentication. You'll need an access\nkey ID and secret access key from your account dashboard. For temporary credentials,\nuse the STS AssumeRole API. All requests must be signed using the canonical request\nformat documented in the AWS signature specification.",
+    "doc": "CloudStore Storage Documentation",
+    "section": "Authentication"
+  },
+  {
+    "original": "Buckets are containers for objects. Bucket names must be globally unique across all\nCloudStore accounts. Names must be 3-63 characters, lowercase, and DNS-compatible.\nEach account can have up to 100 buckets. Buckets can be configured for public access,\nwebsite hosting, or private-only access.",
+    "contextual": "[This chunk, from the \"Buckets\" section of the CloudStore Storage Documentation, defines what buckets are and outlines their key properties, including naming conventions, limits per account, and configuration options.]\n\nBuckets are containers for objects. Bucket names must be globally unique across all\nCloudStore accounts. Names must be 3-63 characters, lowercase, and DNS-compatible.\nEach account can have up to 100 buckets. Buckets can be configured for public access,\nwebsite hosting, or private-only access.",
+    "doc": "CloudStore Storage Documentation",
+    "section": "Buckets"
+  },
+  {
+    "original": "Small files (under 100MB) can be uploaded with a single PUT request.\nFor larger files, use multipart upload: initiate with POST /?uploads,\nupload parts with PUT ?partNumber=N&uploadId=ID, then complete with\nPOST ?uploadId=ID. Multipart uploads can be parallelized for speed.",
+    "contextual": "[This chunk, from the 'Upload Operations' section of the CloudStore Storage Documentation, describes the methods for uploading files to CloudStore, distinguishing between small and large files.]\n\nSmall files (under 100MB) can be uploaded with a single PUT request.\nFor larger files, use multipart upload: initiate with POST /?uploads,\nupload parts with PUT ?partNumber=N&uploadId=ID, then complete with\nPOST ?uploadId=ID. Multipart uploads can be parallelized for speed.",
+    "doc": "CloudStore Storage Documentation",
+    "section": "Upload Operations"
+  },
+  {
+    "original": "Storage costs $0.023 per GB per month for standard tier. Infrequent access\ntier costs $0.0125 per GB. Data transfer out costs $0.09 per GB for the first\n10TB. PUT/COPY/POST requests cost $0.005 per 1,000 requests.\nGET/SELECT requests cost $0.0004 per 1,000 requests.",
+    "contextual": "[This chunk from the \"Pricing\" section of the CloudStore Storage Documentation details the specific costs associated with CloudStore's services. It outlines pricing for different storage tiers, data transfer out, and various API requests like PUT/COPY/POST and GET/SELECT.]\n\nStorage costs $0.023 per GB per month for standard tier. Infrequent access\ntier costs $0.0125 per GB. Data transfer out costs $0.09 per GB for the first\n10TB. PUT/COPY/POST requests cost $0.005 per 1,000 requests.\nGET/SELECT requests cost $0.0004 per 1,000 requests.",
+    "doc": "CloudStore Storage Documentation",
+    "section": "Pricing"
+  },
+  {
+    "original": "TaskQueue is a distributed job processing system for background tasks.\nIt guarantees at-least-once delivery and supports priority queues.\nJobs can be scheduled for future execution or immediate processing.\nTaskQueue handles retry logic, dead letter queues, and job dependencies.",
+    "contextual": "[This chunk from the 'Overview' section of the 'TaskQueue Job Processing Documentation' introduces TaskQueue as a distributed background job processing system and outlines its core features and guarantees.]\n\nTaskQueue is a distributed job processing system for background tasks.\nIt guarantees at-least-once delivery and supports priority queues.\nJobs can be scheduled for future execution or immediate processing.\nTaskQueue handles retry logic, dead letter queues, and job dependencies.",
+    "doc": "TaskQueue Job Processing Documentation",
+    "section": "Overview"
+  },
+  {
+    "original": "Create a job by POSTing to /jobs with a JSON body containing: queue (string),\npayload (object), priority (1-10, default 5), and optional scheduled_at (ISO8601).\nThe response includes a job_id for tracking. Jobs are immutable once created -\nto modify, cancel and recreate.",
+    "contextual": "[This chunk from the \"Creating Jobs\" section of the \"TaskQueue Job Processing Documentation\" details the process for creating new jobs. It explains the HTTP method, required JSON body parameters, and the immutability of jobs after creation.]\n\nCreate a job by POSTing to /jobs with a JSON body containing: queue (string),\npayload (object), priority (1-10, default 5), and optional scheduled_at (ISO8601).\nThe response includes a job_id for tracking. Jobs are immutable once created -\nto modify, cancel and recreate.",
+    "doc": "TaskQueue Job Processing Documentation",
+    "section": "Creating Jobs"
+  },
+  {
+    "original": "Workers poll for jobs using GET /jobs/next?queue=QUEUE_NAME. The returned job\nis locked for 5 minutes (configurable). Workers must call POST /jobs/{id}/complete\nor POST /jobs/{id}/fail within the lock period. Failed jobs are automatically\nretried up to 3 times with exponential backoff.",
+    "contextual": "[This chunk from the \"Processing Jobs\" section of the TaskQueue Job Processing Documentation details the process workers follow to retrieve, lock, and complete or fail jobs, including automatic retries for failed tasks.]\n\nWorkers poll for jobs using GET /jobs/next?queue=QUEUE_NAME. The returned job\nis locked for 5 minutes (configurable). Workers must call POST /jobs/{id}/complete\nor POST /jobs/{id}/fail within the lock period. Failed jobs are automatically\nretried up to 3 times with exponential backoff.",
+    "doc": "TaskQueue Job Processing Documentation",
+    "section": "Processing Jobs"
+  },
+  {
+    "original": "The /stats endpoint returns queue depths, processing rates, and error rates.\nEach job has a status: pending, processing, completed, or failed. Use\nGET /jobs/{id} to check individual job status. Webhook notifications can be\nconfigured to fire on job completion or failure.",
+    "contextual": "[This chunk from the \"Monitoring\" section of the TaskQueue Job Processing Documentation describes methods for monitoring job status and queue performance, including API endpoints and webhook notifications.]\n\nThe /stats endpoint returns queue depths, processing rates, and error rates.\nEach job has a status: pending, processing, completed, or failed. Use\nGET /jobs/{id} to check individual job status. Webhook notifications can be\nconfigured to fire on job completion or failure.",
+    "doc": "TaskQueue Job Processing Documentation",
+    "section": "Monitoring"
+  },
+  {
+    "original": "Keep job payloads small (under 64KB) - store large data externally and reference it.\nUse idempotent job handlers to handle potential duplicate deliveries.\nSet appropriate timeouts based on expected job duration.\nMonitor queue depths to scale workers dynamically.",
+    "contextual": "[This chunk, from the 'Best Practices' section of the TaskQueue Job Processing Documentation, outlines key recommendations for optimizing job processing, such as keeping payloads small, ensuring idempotency, setting appropriate timeouts, and monitoring queue depths.]\n\nKeep job payloads small (under 64KB) - store large data externally and reference it.\nUse idempotent job handlers to handle potential duplicate deliveries.\nSet appropriate timeouts based on expected job duration.\nMonitor queue depths to scale workers dynamically.",
+    "doc": "TaskQueue Job Processing Documentation",
+    "section": "Best Practices"
+  }
+]

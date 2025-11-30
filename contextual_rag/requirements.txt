@@ -1,0 +1,8 @@
+# Contextual RAG Dependencies
+# Install with: pip install -r requirements.txt
+
+dspy>=2.5.0               # DSPy framework (3.x compatible)
+python-dotenv>=1.0.0      # Environment variable loading
+sentence-transformers>=2.2.0  # Local embeddings (free!)
+rank-bm25>=0.2.2          # BM25 keyword matching
+numpy>=1.24.0             # Vector operations

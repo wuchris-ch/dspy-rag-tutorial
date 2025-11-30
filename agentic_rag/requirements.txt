@@ -1,0 +1,13 @@
+# Agentic RAG with DSPy Dependencies
+# Install with: pip install -r requirements.txt
+
+# DSPy 3.x - the framework for building LLM programs
+dspy-ai>=3.0.4
+
+# GEPA optimizer - reflective prompt evolution
+# (GEPA is included in DSPy 3.x, but we note it here for documentation)
+# gepa  # Optional: standalone package at https://github.com/gepa-ai/gepa
+
+# Environment variable management
+python-dotenv>=1.0.0
+

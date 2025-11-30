@@ -309,7 +309,8 @@ def gepa_metric(gold, pred, trace=None, pred_name=None, pred_trace=None):
         feedback = f"Incorrect. Expected answer to contain '{gold.expected_answer}' but got: '{actual[:100]}...'"
     
     # Return score with feedback for GEPA's reflection
-    return dspy.teleprompt.gepa.ScoreWithFeedback(score=score, feedback=feedback)
+    from dspy.teleprompt.gepa.gepa_utils import ScoreWithFeedback
+    return ScoreWithFeedback(score=score, feedback=feedback)
 
 
 class SimpleRAGForOptimization(dspy.Module):
