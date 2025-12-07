@@ -74,6 +74,7 @@ from typing import Annotated
 from dotenv import load_dotenv
 import dspy
 from dspy import GEPA  # DSPy's reflective prompt optimizer
+from dspy.teleprompt.gepa.gepa import ScoreWithFeedback  # For GEPA feedback metrics
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -419,11 +420,11 @@ def metric_with_feedback(example, prediction, trace=None):
             f"The agent may need to use the right tools or reason more carefully."
         )
     
-    # Return a Prediction with both score and feedback
-    return dspy.Prediction(score=score, feedback=feedback)
+    # Return ScoreWithFeedback for GEPA to use
+    return ScoreWithFeedback(score=score, feedback=feedback)
 
 
-def optimize_agent_with_gepa(agent, trainset=None, num_iterations=3):
+def optimize_agent_with_gepa(agent, trainset=None, auto="light"):
     """
     Optimize the agent using GEPA.
     
@@ -437,7 +438,7 @@ def optimize_agent_with_gepa(agent, trainset=None, num_iterations=3):
     Args:
         agent: The dspy.ReAct agent to optimize
         trainset: Training examples (uses TRAINING_DATA if None)
-        num_iterations: Number of optimization iterations
+        auto: Optimization budget - "light", "medium", or "heavy"
     
     Returns:
         The optimized agent
@@ -446,15 +447,14 @@ def optimize_agent_with_gepa(agent, trainset=None, num_iterations=3):
         trainset = TRAINING_DATA
     
     print(f"\n🧬 Starting GEPA optimization with {len(trainset)} training examples...")
-    print(f"   Running {num_iterations} iterations of reflective prompt evolution")
+    print(f"   Using '{auto}' optimization budget")
     
     # Create GEPA optimizer
     # - metric: Our feedback-providing metric
-    # - num_iterations: How many rounds of reflection/improvement
+    # - auto: Controls optimization budget ("light", "medium", or "heavy")
     optimizer = GEPA(
         metric=metric_with_feedback,
-        max_iterations=num_iterations,
-        num_candidates=3,  # Number of prompt candidates to generate per iteration
+        auto=auto,  # Use "medium" or "heavy" for more thorough optimization
     )
     
     # Compile (optimize) the agent
@@ -696,7 +696,7 @@ This may take a few minutes and uses additional API calls.
             baseline_acc, _ = evaluate_agent(agent)
             
             # Run GEPA optimization
-            optimized_agent = optimize_agent_with_gepa(agent, num_iterations=2)
+            optimized_agent = optimize_agent_with_gepa(agent, auto="light")
             
             # Evaluate after optimization
             print("\n📊 Post-optimization evaluation:")

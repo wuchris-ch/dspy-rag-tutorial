@@ -1,0 +1,356 @@
+# DSPy Supabase RAG Pipeline
+
+A production-ready RAG (Retrieval-Augmented Generation) pipeline with comprehensive evaluation.
+
+## Tech Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **PDF Parsing** | Docling | Layout analysis, table detection, OCR |
+| **Embeddings** | sentence-transformers | all-MiniLM-L6-v2 (384 dims) |
+| **Vector Store** | Supabase pgvector | HNSW index, hybrid search |
+| **Keyword Search** | rank-bm25 | BM25Okapi algorithm |
+| **LLM** | Groq | kimi-k2-instruct (fast inference) |
+| **Framework** | DSPy | Structured LLM programming |
+| **Evaluation** | RAGAS + LLM-as-Judge | Multi-metric assessment |
+
+---
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INGESTION PIPELINE                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   📄 PDF/DOCX/HTML                    
+         │                             
+         ▼                             
+   ┌───────────────┐    Docling extracts text, tables, 
+   │   Docling     │    formulas with layout analysis.
+   │   Parser      │    Falls back to OCR (EasyOCR) for
+   └───────┬───────┘    scanned documents.
+           │                           
+           ▼                           
+   ┌───────────────┐    Splits into semantic chunks.
+   │   Chunking    │    Optionally adds LLM-generated
+   │  + Context    │    context prefixes (Anthropic's
+   └───────┬───────┘    Contextual Retrieval technique).
+           │                           
+           ▼                           
+   ┌───────────────┐    sentence-transformers generates
+   │  Embeddings   │    384-dim vectors locally.
+   │  (MiniLM)     │    No API costs, runs on CPU/GPU.
+   └───────┬───────┘                   
+           │                           
+           ▼                           
+   ┌───────────────┐    Stores vectors + metadata in
+   │   Supabase    │    PostgreSQL with pgvector.
+   │   pgvector    │    HNSW index for fast retrieval.
+   └───────────────┘                   
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            QUERY PIPELINE                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   ❓ User Question                    
+         │                             
+         ├──────────────┬──────────────┐
+         ▼              ▼              │
+   ┌───────────┐  ┌───────────┐        │
+   │   BM25    │  │  Vector   │        │  HYBRID RETRIEVAL
+   │  Search   │  │  Search   │        │  
+   │ (keywords)│  │ (semantic)│        │  BM25 finds exact terms
+   └─────┬─────┘  └─────┬─────┘        │  Vector finds meaning
+         │              │              │
+         └──────┬───────┘              │
+                ▼                      │
+   ┌─────────────────────┐             │
+   │  Reciprocal Rank    │             │  RRF combines rankings
+   │  Fusion (RRF)       │             │  without score normalization
+   └──────────┬──────────┘             │
+              │                        │
+              ▼                        │
+   ┌─────────────────────┐             
+   │  Top-K Documents    │  Retrieved chunks with
+   │  + Metadata         │  source, section, scores
+   └──────────┬──────────┘             
+              │                        
+              ▼                        
+   ┌─────────────────────┐  DSPy ChainOfThought
+   │   Groq LLM          │  generates answer with
+   │   (kimi-k2)         │  reasoning + sources
+   └──────────┬──────────┘             
+              │                        
+              ▼                        
+   💬 Answer + Reasoning + Sources     
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          EVALUATION PIPELINE                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   📊 Test Set (questions + expected answers)
+         │
+         ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                   EVALUATION METHODS                     │
+   ├─────────────────┬───────────────────┬───────────────────┤
+   │                 │                   │                   │
+   │  ┌───────────┐  │  ┌─────────────┐  │  ┌─────────────┐  │
+   │  │  RAGAS    │  │  │   DSPy      │  │  │ LLM-as-     │  │
+   │  │ (OpenAI)  │  │  │ SemanticF1  │  │  │   Judge     │  │
+   │  └─────┬─────┘  │  └──────┬──────┘  │  └──────┬──────┘  │
+   │        │        │         │         │         │         │
+   │  Industry       │  Uses your       │  Custom          │
+   │  standard       │  configured      │  criteria,       │
+   │  metrics        │  LLM (Groq)      │  no ground       │
+   │                 │                   │  truth needed    │
+   └────────┬────────┴─────────┬─────────┴─────────┬────────┘
+            │                  │                   │
+            └──────────────────┼───────────────────┘
+                               ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                    METRICS COMPUTED                      │
+   ├──────────────────────────┬──────────────────────────────┤
+   │      RETRIEVAL           │        GENERATION            │
+   ├──────────────────────────┼──────────────────────────────┤
+   │  • Context Precision     │  • Faithfulness              │
+   │    (relevant docs?)      │    (grounded in context?)    │
+   │                          │                              │
+   │  • Context Recall        │  • Answer Relevancy          │
+   │    (all relevant found?) │    (addresses question?)     │
+   │                          │                              │
+   │  • Context Relevance     │  • Answer Correctness        │
+   │    (overall quality)     │    (factually accurate?)     │
+   └──────────────────────────┴──────────────────────────────┘
+                               │
+                               ▼
+   ╔═══════════════════════════════════════════════════════════╗
+   ║  Overall Score: 78.5%                                     ║
+   ║  ├─ Retrieval:  79.0%                                     ║
+   ║  └─ Generation: 78.0%                                     ║
+   ╚═══════════════════════════════════════════════════════════╝
+```
+
+---
+
+## Evaluation System
+
+### Three Evaluation Approaches
+
+| Approach | Requires | Best For | Speed |
+|----------|----------|----------|-------|
+| **RAGAS** | OpenAI API key | Production benchmarks | Slow |
+| **DSPy SemanticF1** | Groq/Gemini (your LLM) | Answer correctness | Medium |
+| **LLM-as-Judge** | Groq/Gemini (your LLM) | Quick checks, no ground truth | Fast |
+
+### Evaluation Metrics Explained
+
+#### Retrieval Metrics
+
+| Metric | What It Measures | How It's Computed |
+|--------|------------------|-------------------|
+| **Context Precision** | Are retrieved docs relevant? | LLM judges each chunk's relevance to query |
+| **Context Recall** | Did we get all relevant info? | Compares retrieved vs. ground truth claims |
+| **Context Relevance** | Overall retrieval quality | Combined precision/recall score |
+
+#### Generation Metrics
+
+| Metric | What It Measures | How It's Computed |
+|--------|------------------|-------------------|
+| **Faithfulness** | Is answer grounded in context? | Extracts claims, verifies each against context |
+| **Answer Relevancy** | Does answer address the question? | Generates reverse questions, measures similarity |
+| **Answer Correctness** | Is answer factually correct? | SemanticF1 vs. ground truth |
+
+### Running Evaluation
+
+```python
+from evaluation import PipelineEvaluator
+from rag_pipeline import RAGSystem
+
+# Initialize
+rag = RAGSystem()
+evaluator = PipelineEvaluator(rag)
+
+# Quick eval (no ground truth needed)
+result = evaluator.quick_eval([
+    "What is the main topic?",
+    "What are the key findings?",
+])
+print(result)
+
+# Full eval with ground truth
+result = evaluator.full_eval([
+    {"question": "What is X?", "expected_answer": "X is..."},
+])
+evaluator.generate_report(result, "eval_results.json")
+```
+
+### Interpreting Results
+
+| Score | Interpretation | Action |
+|-------|----------------|--------|
+| **> 80%** | Excellent | Production ready |
+| **60-80%** | Good | Minor optimization |
+| **40-60%** | Fair | Review retrieval/prompts |
+| **< 40%** | Poor | Major debugging needed |
+
+---
+
+## Quick Start
+
+> **📖 See [START_HERE.md](START_HERE.md) for detailed step-by-step instructions**
+
+```bash
+# 1. Install (using uv - 10x faster than pip)
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+
+# 2. Configure
+cp .env.example .env  # Add your API keys
+
+# 3. Setup Supabase (run SQL from START_HERE.md)
+
+# 4. Download sample PDFs
+python download_samples.py
+
+# 5. Ingest & Query
+python rag_pipeline.py ingest sample_pdfs/*.pdf
+python rag_pipeline.py interactive
+```
+
+---
+
+## Usage
+
+### Python API
+
+```python
+from rag_pipeline import RAGSystem
+
+# Initialize
+rag = RAGSystem(
+    llm_provider="groq",
+    llm_model="moonshotai/kimi-k2-instruct",
+    hybrid_retrieval=True,
+)
+
+# Ingest documents
+rag.ingest("document.pdf")
+
+# Query
+response = rag.query("What are the key findings?")
+print(response.answer)
+print(response.reasoning)
+print(response.sources)
+```
+
+### CLI Commands
+
+```bash
+# Ingest
+python rag_pipeline.py ingest document.pdf
+python rag_pipeline.py ingest *.pdf
+
+# Query
+python rag_pipeline.py query "Your question here"
+python rag_pipeline.py interactive
+
+# Evaluate
+python evaluation.py quick -q "Question 1" "Question 2"
+python evaluation.py full -f test_set.json -o results.json
+```
+
+---
+
+## Configuration
+
+### Required Environment Variables
+
+```env
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=your-service-role-key
+GROQ_API_KEY=gsk_xxx
+```
+
+### Optional Environment Variables
+
+```env
+OPENAI_API_KEY=sk-xxx        # For RAGAS evaluation
+GEMINI_API_KEY=xxx           # Alternative LLM
+```
+
+### Model Options
+
+| Provider | Model | Use Case |
+|----------|-------|----------|
+| **Groq** | `moonshotai/kimi-k2-instruct` | Default - powerful reasoning |
+| **Groq** | `llama-3.3-70b-versatile` | Fast, general purpose |
+| **Gemini** | `gemini-2.5-flash` | Alternative provider |
+
+---
+
+## Project Structure
+
+```
+DSPy-Supabase-RAG/
+├── rag_pipeline.py       # Main RAG system
+├── pdf_processor.py      # Docling PDF parsing
+├── embeddings.py         # Embedding generation + Supabase
+├── retriever.py          # Hybrid search (BM25 + vector)
+├── evaluation.py         # RAGAS + LLM-as-Judge
+├── download_samples.py   # Download test PDFs
+├── requirements.txt      # Dependencies
+├── pyproject.toml        # Modern Python config
+├── .env.example          # Environment template
+├── START_HERE.md         # Quick start guide
+└── README.md             # This file
+```
+
+---
+
+## Features
+
+### Docling PDF Processing
+- Layout analysis and table detection
+- OCR fallback (EasyOCR/Tesseract)
+- Formula and image extraction
+- Multiple chunking strategies (semantic/fixed/paragraph)
+
+### Hybrid Retrieval
+- **BM25**: Exact keyword matching
+- **Vector**: Semantic similarity (cosine distance)
+- **RRF**: Reciprocal Rank Fusion combines both
+
+### Contextual Chunking
+Based on [Anthropic's Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) (reduces failures by 67%):
+
+```
+Before: "Revenue grew by 15%..."
+After:  "[This chunk is from ACME's Q3 2024 report, discussing quarterly revenue growth.]
+         Revenue grew by 15%..."
+```
+
+### Multi-Strategy Evaluation
+- **RAGAS**: Industry-standard metrics (requires OpenAI)
+- **SemanticF1**: DSPy's fact-based comparison
+- **LLM-as-Judge**: Custom criteria, explainable scores
+
+---
+
+## Troubleshooting
+
+| Error | Solution |
+|-------|----------|
+| `SUPABASE_URL not found` | Copy `.env.example` to `.env`, add credentials |
+| `match_documents not found` | Run SQL setup in Supabase (see START_HERE.md) |
+| `OcrOptions error` | Update to latest Docling: `pip install -U docling` |
+| Slow embeddings | Use GPU: `EmbeddingGenerator(device="cuda")` |
+
+---
+
+## License
+
+MIT

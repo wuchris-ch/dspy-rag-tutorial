@@ -31,7 +31,7 @@ Use an LLM to prepend context to each chunk BEFORE embedding:
 
     ┌─────────────────────────────────────────────────────────────┐
     │ [Context: This chunk is from ACME Corp's Q3 2024 Financial  │
-    │ Report, specifically the Revenue section]                   │
+    │ Report, specifically the Revenue section]                   │                 
     │                                                             │
     │ Revenue grew by 15% compared to Q2...                       │
     └─────────────────────────────────────────────────────────────┘
