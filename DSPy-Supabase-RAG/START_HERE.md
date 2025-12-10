@@ -172,10 +172,10 @@ You should see "Success. No rows returned" - that's correct!
 
 ```bash
 # Download 2 sample PDFs for testing
-python download_samples.py
+uv run download_samples.py
 
 # Or download all 5 samples
-python download_samples.py --all
+uv run download_samples.py --all
 ```
 
 This downloads research papers to `./sample_pdfs/`:
@@ -188,7 +188,7 @@ This downloads research papers to `./sample_pdfs/`:
 
 ```bash
 # Ingest the sample PDFs
-python rag_pipeline.py ingest sample_pdfs/*.pdf
+uv run rag_pipeline.py ingest sample_pdfs/*.pdf
 ```
 
 You should see:
@@ -209,13 +209,13 @@ Total inserted: 24 records
 ### Single Query
 
 ```bash
-python rag_pipeline.py query "What is Docling and what can it do?"
+uv run rag_pipeline.py query "What is Docling and what can it do?"
 ```
 
 ### Interactive Mode
 
 ```bash
-python rag_pipeline.py interactive
+uv run rag_pipeline.py interactive
 ```
 
 Then ask questions:
@@ -236,7 +236,7 @@ Then ask questions:
 ### Quick Evaluation (No ground truth needed)
 
 ```bash
-python evaluation.py quick -q "What is Docling?" "How does RAG work?"
+uv run evaluation.py quick -q "What is Docling?" "How does RAG work?"
 ```
 
 ### Full Evaluation with Test Set
@@ -257,7 +257,7 @@ Create `test_set.json`:
 
 Then run:
 ```bash
-python evaluation.py full -f test_set.json -o results.json
+uv run evaluation.py full -f test_set.json -o results.json
 ```
 
 ---

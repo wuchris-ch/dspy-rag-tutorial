@@ -128,9 +128,9 @@ A production-ready RAG (Retrieval-Augmented Generation) pipeline with comprehens
                                │
                                ▼
    ╔═══════════════════════════════════════════════════════════╗
-   ║  Overall Score: 78.5%                                     ║
-   ║  ├─ Retrieval:  79.0%                                     ║
-   ║  └─ Generation: 78.0%                                     ║
+   ║  Overall Score: 65.9%                                     ║
+   ║  ├─ Retrieval:  49% (precision 44%, recall 54%)           ║
+   ║  └─ Generation: 83% (faithfulness 76%, relevancy 90%)     ║
    ╚═══════════════════════════════════════════════════════════╝
 ```
 
@@ -138,13 +138,25 @@ A production-ready RAG (Retrieval-Augmented Generation) pipeline with comprehens
 
 ## Evaluation System
 
+### Latest Results (20 test samples)
+
+| Category | Metric | Score | Notes |
+|----------|--------|-------|-------|
+| **Overall** | Combined | **65.9%** | Good - minor optimization needed |
+| **Retrieval** | Context Precision | 43.6% | Room for improvement |
+| | Context Recall | 54.2% | Moderate coverage |
+| **Generation** | Faithfulness | 75.6% | Good grounding |
+| | Answer Relevancy | 90.1% | Excellent |
+
+*Evaluated with RAGAS using gpt-4o-mini as the judge model. RAG queries powered by Groq kimi-k2-instruct.*
+
 ### Three Evaluation Approaches
 
-| Approach | Requires | Best For | Speed |
-|----------|----------|----------|-------|
-| **RAGAS** | OpenAI API key | Production benchmarks | Slow |
-| **DSPy SemanticF1** | Groq/Gemini (your LLM) | Answer correctness | Medium |
-| **LLM-as-Judge** | Groq/Gemini (your LLM) | Quick checks, no ground truth | Fast |
+| Approach | Judge Model | Best For | Speed |
+|----------|-------------|----------|-------|
+| **RAGAS** | gpt-4o-mini (OpenAI) | Production benchmarks | ~2 min |
+| **DSPy SemanticF1** | Your LLM (Groq/Gemini) | Answer correctness | Medium |
+| **LLM-as-Judge** | Your LLM (Groq/Gemini) | Quick checks, no ground truth | Fast |
 
 ### Evaluation Metrics Explained
 
@@ -197,6 +209,25 @@ evaluator.generate_report(result, "eval_results.json")
 | **40-60%** | Fair | Review retrieval/prompts |
 | **< 40%** | Poor | Major debugging needed |
 
+### Sample-Level Insights
+
+Results include per-question scores, helping identify weak spots:
+
+```json
+{
+  "question": "How does Docling handle tables?",
+  "faithfulness": 1.0,        // ✓ Perfect - answer grounded in context
+  "answer_relevancy": 0.90,   // ✓ Excellent - addresses the question
+  "context_precision": 0.53,  // △ Moderate - some irrelevant chunks retrieved
+  "context_recall": 1.0       // ✓ Perfect - all relevant info found
+}
+```
+
+**Common patterns:**
+- High faithfulness + low recall → Retrieval missing relevant docs
+- Low faithfulness + high recall → Generation hallucinating despite good context
+- Low relevancy → Question-answer mismatch, check prompt
+
 ---
 
 ## Quick Start
@@ -214,11 +245,11 @@ cp .env.example .env  # Add your API keys
 # 3. Setup Supabase (run SQL from START_HERE.md)
 
 # 4. Download sample PDFs
-python download_samples.py
+uv run download_samples.py
 
 # 5. Ingest & Query
-python rag_pipeline.py ingest sample_pdfs/*.pdf
-python rag_pipeline.py interactive
+uv run rag_pipeline.py ingest sample_pdfs/*.pdf
+uv run rag_pipeline.py interactive
 ```
 
 ---
@@ -251,16 +282,19 @@ print(response.sources)
 
 ```bash
 # Ingest
-python rag_pipeline.py ingest document.pdf
-python rag_pipeline.py ingest *.pdf
+uv run rag_pipeline.py ingest document.pdf
+uv run rag_pipeline.py ingest *.pdf
 
 # Query
-python rag_pipeline.py query "Your question here"
-python rag_pipeline.py interactive
+uv run rag_pipeline.py query "Your question here"
+uv run rag_pipeline.py interactive
 
 # Evaluate
-python evaluation.py quick -q "Question 1" "Question 2"
-python evaluation.py full -f test_set.json -o results.json
+uv run evaluation.py quick -q "Question 1" "Question 2"
+uv run evaluation.py full -f test_set.json -o results.json
+
+# Slower rate for free-tier APIs (default 3s delay)
+uv run evaluation.py full -f test_set.json -o results.json --delay 5
 ```
 
 ---

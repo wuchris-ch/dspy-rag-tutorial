@@ -18,6 +18,7 @@ Based on latest research and best practices:
 import os
 import json
 import logging
+import time
 from typing import Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -272,13 +273,56 @@ class RAGASEvaluator:
         logger.info(f"Running RAGAS evaluation on {len(samples)} samples...")
         result = self._evaluate(dataset=dataset, metrics=selected_metrics)
         
-        # Extract scores
+        # Extract scores from RAGAS EvaluationResult
+        # In RAGAS 0.2.x+, scores are in a pandas DataFrame via to_pandas()
+        def get_score(result_obj, metric_name: str) -> float:
+            """Safely extract score from RAGAS EvaluationResult."""
+            # Method 1: Try to_pandas() and get mean (RAGAS 0.2.x+)
+            try:
+                df = result_obj.to_pandas()
+                if metric_name in df.columns:
+                    score = df[metric_name].mean()
+                    if not pd.isna(score):
+                        logger.debug(f"Got {metric_name}={score} from to_pandas()")
+                        return float(score)
+            except Exception as e:
+                logger.debug(f"to_pandas() failed for {metric_name}: {e}")
+            
+            # Method 2: Try direct subscript access (older RAGAS)
+            try:
+                score = result_obj[metric_name]
+                if score is not None:
+                    logger.debug(f"Got {metric_name}={score} from subscript")
+                    return float(score)
+            except (KeyError, TypeError) as e:
+                logger.debug(f"Subscript access failed for {metric_name}: {e}")
+            
+            # Method 3: Try attribute access
+            try:
+                score = getattr(result_obj, metric_name, None)
+                if score is not None:
+                    logger.debug(f"Got {metric_name}={score} from attribute")
+                    return float(score)
+            except (AttributeError, TypeError) as e:
+                logger.debug(f"Attribute access failed for {metric_name}: {e}")
+            
+            logger.warning(f"Could not extract score for {metric_name}, returning 0.0")
+            return 0.0
+        
+        # Import pandas for score extraction
+        import pandas as pd
+        
         scores = ComponentScores(
-            faithfulness=result.get("faithfulness", 0.0),
-            answer_relevancy=result.get("answer_relevancy", 0.0),
-            context_precision=result.get("context_precision", 0.0),
-            context_recall=result.get("context_recall", 0.0),
+            faithfulness=get_score(result, "faithfulness"),
+            answer_relevancy=get_score(result, "answer_relevancy"),
+            context_precision=get_score(result, "context_precision"),
+            context_recall=get_score(result, "context_recall"),
         )
+        
+        logger.info(f"Extracted scores: faithfulness={scores.faithfulness:.3f}, "
+                   f"answer_relevancy={scores.answer_relevancy:.3f}, "
+                   f"context_precision={scores.context_precision:.3f}, "
+                   f"context_recall={scores.context_recall:.3f}")
         
         # Calculate overall score (average of all metrics)
         valid_scores = [s for s in [
@@ -287,9 +331,30 @@ class RAGASEvaluator:
         ] if s > 0]
         scores.overall = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
         
+        # Extract per-sample details
+        samples_detail = []
+        try:
+            df = result.to_pandas()
+            for i, sample in enumerate(samples):
+                detail = {
+                    "question": sample.question,
+                    "answer": sample.answer[:200] + "..." if len(sample.answer) > 200 else sample.answer,
+                }
+                # Add individual scores if available
+                if i < len(df):
+                    row = df.iloc[i]
+                    for metric in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]:
+                        if metric in df.columns:
+                            val = row[metric]
+                            detail[metric] = float(val) if not pd.isna(val) else None
+                samples_detail.append(detail)
+        except Exception as e:
+            logger.warning(f"Could not extract sample details: {e}")
+        
         return EvalResult(
             scores=scores,
             num_samples=len(samples),
+            samples_detail=samples_detail,
             config={"evaluator": "ragas", "model": self.model},
         )
 
@@ -676,12 +741,17 @@ class PipelineEvaluator:
                 pass
         return self._ragas_eval if self._ragas_eval and self._ragas_eval.api_key else None
     
-    def run_rag(self, questions: list[str]) -> list[EvalSample]:
+    def run_rag(
+        self, 
+        questions: list[str],
+        delay_seconds: float = 3.0,
+    ) -> list[EvalSample]:
         """
         Run RAG system on questions and collect samples for evaluation.
         
         Args:
             questions: List of questions to ask
+            delay_seconds: Delay between queries to avoid rate limiting (default 3s)
             
         Returns:
             List of EvalSample with answers and contexts
@@ -690,7 +760,7 @@ class PipelineEvaluator:
             raise ValueError("RAG system not provided")
         
         samples = []
-        for q in questions:
+        for i, q in enumerate(questions):
             try:
                 result = self.rag_system.query(q)
                 samples.append(EvalSample(
@@ -702,6 +772,10 @@ class PipelineEvaluator:
             except Exception as e:
                 logger.warning(f"Error on question '{q}': {e}")
                 samples.append(EvalSample(question=q, answer="", ground_truth=""))
+            
+            # Rate limiting delay between queries (skip after last one)
+            if delay_seconds > 0 and i < len(questions) - 1:
+                time.sleep(delay_seconds)
         
         return samples
     
@@ -709,6 +783,7 @@ class PipelineEvaluator:
         self,
         questions: list[str],
         verbose: bool = True,
+        delay_seconds: float = 3.0,
     ) -> EvalResult:
         """
         Quick evaluation using LLM-as-Judge.
@@ -721,6 +796,7 @@ class PipelineEvaluator:
         Args:
             questions: List of questions to evaluate
             verbose: Print progress
+            delay_seconds: Delay between RAG queries to avoid rate limiting
             
         Returns:
             EvalResult with scores
@@ -730,7 +806,7 @@ class PipelineEvaluator:
             print("=" * 50)
         
         # Run RAG on questions
-        samples = self.run_rag(questions)
+        samples = self.run_rag(questions, delay_seconds=delay_seconds)
         
         # Evaluate with LLM judge
         result = self._llm_judge.evaluate(samples, verbose=verbose)
@@ -744,6 +820,7 @@ class PipelineEvaluator:
         self,
         test_set: list[dict],
         verbose: bool = True,
+        delay_seconds: float = 3.0,
     ) -> EvalResult:
         """
         Full evaluation with ground truth.
@@ -753,6 +830,7 @@ class PipelineEvaluator:
         Args:
             test_set: List of {"question": ..., "expected_answer": ...}
             verbose: Print progress
+            delay_seconds: Delay between RAG queries to avoid rate limiting
             
         Returns:
             EvalResult with comprehensive scores
@@ -763,7 +841,7 @@ class PipelineEvaluator:
         
         # Run RAG and collect samples
         questions = [t["question"] for t in test_set]
-        samples = self.run_rag(questions)
+        samples = self.run_rag(questions, delay_seconds=delay_seconds)
         
         # Add ground truth
         for sample, test in zip(samples, test_set):
@@ -904,6 +982,8 @@ def main():
     quick_parser.add_argument("--questions", "-q", nargs="+", 
                               help="Questions to evaluate")
     quick_parser.add_argument("--file", "-f", help="JSON file with questions")
+    quick_parser.add_argument("--delay", "-d", type=float, default=3.0,
+                              help="Delay between queries in seconds (default: 3.0)")
     
     # Full eval
     full_parser = subparsers.add_parser("full", help="Full evaluation with ground truth")
@@ -911,6 +991,8 @@ def main():
                              help="JSON file with test set")
     full_parser.add_argument("--output", "-o", default="eval_results.json",
                              help="Output file for results")
+    full_parser.add_argument("--delay", "-d", type=float, default=3.0,
+                             help="Delay between queries in seconds (default: 3.0)")
     
     # Demo
     subparsers.add_parser("demo", help="Run evaluation demo")
@@ -931,7 +1013,7 @@ def main():
         
         rag = RAGSystem()
         evaluator = PipelineEvaluator(rag)
-        result = evaluator.quick_eval(questions)
+        result = evaluator.quick_eval(questions, delay_seconds=args.delay)
         print(result)
     
     elif args.command == "full":
@@ -942,7 +1024,7 @@ def main():
         
         rag = RAGSystem()
         evaluator = PipelineEvaluator(rag)
-        result = evaluator.full_eval(test_set)
+        result = evaluator.full_eval(test_set, delay_seconds=args.delay)
         evaluator.generate_report(result, args.output)
     
     elif args.command == "demo":
