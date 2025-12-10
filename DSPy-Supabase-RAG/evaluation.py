@@ -1011,7 +1011,7 @@ def main():
             with open(args.file) as f:
                 questions = json.load(f)
         
-        rag = RAGSystem()
+        rag = RAGSystem(save_questions_to_faq=False)
         evaluator = PipelineEvaluator(rag)
         result = evaluator.quick_eval(questions, delay_seconds=args.delay)
         print(result)
@@ -1022,7 +1022,7 @@ def main():
         with open(args.file) as f:
             test_set = json.load(f)
         
-        rag = RAGSystem()
+        rag = RAGSystem(save_questions_to_faq=False)
         evaluator = PipelineEvaluator(rag)
         result = evaluator.full_eval(test_set, delay_seconds=args.delay)
         evaluator.generate_report(result, args.output)
@@ -1061,7 +1061,7 @@ Usage:
     from evaluation import PipelineEvaluator
     from rag_pipeline import RAGSystem
     
-    rag = RAGSystem()
+    rag = RAGSystem(save_questions_to_faq=False)
     evaluator = PipelineEvaluator(rag)
     
     # Quick eval

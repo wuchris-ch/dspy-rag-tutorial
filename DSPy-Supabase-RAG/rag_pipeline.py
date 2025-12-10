@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import dspy
 from dotenv import load_dotenv
@@ -438,6 +439,8 @@ class RAGSystem:
         enable_ocr: bool = True,
         enable_contextual: bool = True,
         k: int = 5,
+        save_questions_to_faq: bool = True,
+        faq_source: str = "faq",
     ):
         """
         Initialize the complete RAG system.
@@ -449,6 +452,8 @@ class RAGSystem:
             enable_ocr: Enable OCR for PDF processing
             enable_contextual: Enable contextual chunking
             k: Number of documents to retrieve
+            save_questions_to_faq: Persist user Q&A pairs as FAQ entries
+            faq_source: Source label stored with FAQ chunks
         """
         load_dotenv()
         
@@ -478,8 +483,48 @@ class RAGSystem:
             enable_ocr=enable_ocr,
             enable_contextual=enable_contextual,
         )
+        self.save_questions_to_faq = save_questions_to_faq
+        self.faq_source = faq_source
         
         logger.info(f"RAGSystem initialized with {llm_provider}/{model}")
+    
+    def _store_faq_interaction(self, response: RAGResponse):
+        """Persist the latest Q&A pair as a FAQ-style chunk for future retrieval."""
+        if not self.save_questions_to_faq:
+            return
+        if not response.question or not response.answer:
+            return
+        
+        content = (
+            f"Question: {response.question.strip()}\n"
+            f"Answer: {response.answer.strip()}"
+        )
+        if response.sources:
+            content = f"{content}\nSources: {response.sources}"
+        
+        metadata = {
+            "type": "faq",
+            "question": response.question,
+            "answer_preview": response.answer[:240],
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+        if response.sources:
+            metadata["sources"] = response.sources
+        
+        try:
+            chunk = DocumentChunk(
+                content=content,
+                source=self.faq_source,
+                section="FAQ",
+                metadata=metadata,
+            )
+            self.ingestion.embedding_pipeline.process_and_store([chunk], batch_size=1)
+            
+            # Ensure hybrid BM25 cache sees the new FAQ entry
+            if hasattr(self.retriever, "refresh_index"):
+                self.retriever.refresh_index()
+        except Exception as e:
+            logger.warning(f"Failed to store FAQ interaction: {e}")
     
     def ingest(self, source: str | Path, **kwargs) -> int:
         """Ingest a single document."""
@@ -491,7 +536,9 @@ class RAGSystem:
     
     def query(self, question: str) -> RAGResponse:
         """Query the RAG system."""
-        return self.rag(question)
+        response = self.rag(question)
+        self._store_faq_interaction(response)
+        return response
     
     def refresh_index(self):
         """Refresh the BM25 index after adding new documents."""
@@ -562,9 +609,13 @@ def main():
     query_parser.add_argument("question", help="Question to ask")
     query_parser.add_argument("-k", "--count", type=int, default=5,
                               help="Number of documents to retrieve")
+    query_parser.add_argument("--no-save-faq", action="store_true",
+                              help="Do not store this Q&A as a FAQ chunk")
     
     # Interactive command
-    subparsers.add_parser("interactive", help="Start interactive mode")
+    interactive_parser = subparsers.add_parser("interactive", help="Start interactive mode")
+    interactive_parser.add_argument("--no-save-faq", action="store_true",
+                                    help="Do not store Q&A from this session")
     
     # Parse args
     args = parser.parse_args()
@@ -579,7 +630,10 @@ def main():
         print(f"\n✅ Ingested {total} chunks from {len(args.sources)} documents")
     
     elif args.command == "query":
-        rag = RAGSystem(k=args.count)
+        rag = RAGSystem(
+            k=args.count,
+            save_questions_to_faq=not args.no_save_faq,
+        )
         
         response = rag.query(args.question)
         
@@ -593,7 +647,7 @@ def main():
             print(f"\n📚 Sources: {response.sources}")
     
     elif args.command == "interactive":
-        rag = RAGSystem()
+        rag = RAGSystem(save_questions_to_faq=not args.no_save_faq)
         rag.interactive()
     
     else:

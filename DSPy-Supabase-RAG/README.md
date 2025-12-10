@@ -178,6 +178,8 @@ A production-ready RAG (Retrieval-Augmented Generation) pipeline with comprehens
 
 ### Running Evaluation
 
+Evaluation uses `save_questions_to_faq=False` so test queries do not pollute your FAQ store.
+
 ```python
 from evaluation import PipelineEvaluator
 from rag_pipeline import RAGSystem
@@ -266,6 +268,7 @@ rag = RAGSystem(
     llm_provider="groq",
     llm_model="moonshotai/kimi-k2-instruct",
     hybrid_retrieval=True,
+    save_questions_to_faq=True,  # set False to skip FAQ logging
 )
 
 # Ingest documents
@@ -288,6 +291,8 @@ uv run rag_pipeline.py ingest *.pdf
 # Query
 uv run rag_pipeline.py query "Your question here"
 uv run rag_pipeline.py interactive
+uv run rag_pipeline.py query "Your question here" --no-save-faq  # skip FAQ logging
+uv run rag_pipeline.py interactive --no-save-faq  # interactive without logging
 
 # Evaluate
 uv run evaluation.py quick -q "Question 1" "Question 2"
@@ -366,6 +371,10 @@ Before: "Revenue grew by 15%..."
 After:  "[This chunk is from ACME's Q3 2024 report, discussing quarterly revenue growth.]
          Revenue grew by 15%..."
 ```
+
+### FAQ Capture (Question Logging)
+- Each answered question is stored back into Supabase as a FAQ chunk (metadata `type=faq`), so proven answers become retrievable context for future queries.
+- Hybrid retrieval picks them up automatically; disable when you do not want this behavior with `RAGSystem(save_questions_to_faq=False)` or CLI `--no-save-faq`.
 
 ### Multi-Strategy Evaluation
 - **RAGAS**: Industry-standard metrics (requires OpenAI)
